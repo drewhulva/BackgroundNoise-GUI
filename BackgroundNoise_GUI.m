@@ -1,151 +1,218 @@
-function varargout = BackgroundNoise_GUI(varargin)
-% BACKGROUNDNOISE_GUI MATLAB code for BackgroundNoise_GUI.fig
-%      BACKGROUNDNOISE_GUI, by itself, creates a new BACKGROUNDNOISE_GUI or raises the existing
-%      singleton*.
+function BackgroundNoise_GUI
+% This GUI is the new background noise measurement interface for the
+% architetural acoustics group at Virginia Tech.
 %
-%      H = BACKGROUNDNOISE_GUI returns the handle to a new BACKGROUNDNOISE_GUI or the handle to
-%      the existing singleton*.
-%
-%      BACKGROUNDNOISE_GUI('CALLBACK',hObject,eventData,handles,...) calls the local
-%      function named CALLBACK in BACKGROUNDNOISE_GUI.M with the given input arguments.
-%
-%      BACKGROUNDNOISE_GUI('Property','Value',...) creates a new BACKGROUNDNOISE_GUI or raises the
-%      existing singleton*.  Starting from the left, property value pairs are
-%      applied to the GUI before BackgroundNoise_GUI_OpeningFcn gets called.  An
-%      unrecognized property name or invalid value makes property application
-%      stop.  All inputs are passed to BackgroundNoise_GUI_OpeningFcn via varargin.
-%
-%      *See GUI Options on GUIDE's Tools menu.  Choose "GUI allows only one
-%      instance to run (singleton)".
-%
-% See also: GUIDE, GUIDATA, GUIHANDLES
+% Features of this GUI are:
+% 1. Calibrate from either microphone sensitivity or external tone
+% 2. Take 5-sec ambient noise measurement and plot relevant information on
+% a heatmap.
 
-% Edit the above text to modify the response to help BackgroundNoise_GUI
+% Clean up the workspace and set all units to normalized
+close all
+f = figure('Visible','off','Units','Normalized','Position',[.2 .3 .6 .5]);
 
-% Last Modified by GUIDE v2.5 14-Sep-2016 22:57:53
 
-% Begin initialization code - DO NOT EDIT
-gui_Singleton = 1;
-gui_State = struct('gui_Name',       mfilename, ...
-                   'gui_Singleton',  gui_Singleton, ...
-                   'gui_OpeningFcn', @BackgroundNoise_GUI_OpeningFcn, ...
-                   'gui_OutputFcn',  @BackgroundNoise_GUI_OutputFcn, ...
-                   'gui_LayoutFcn',  [] , ...
-                   'gui_Callback',   []);
-if nargin && ischar(varargin{1})
-    gui_State.gui_Callback = str2func(varargin{1});
+%%  Open new figure and 
+% mh = uimenu(f,'Label','File'); 
+% frh = uimenu(mh,'Label','Find and Replace ...',...
+%             'Callback','disp(''goto'')');
+% frh = uimenu(mh,'Label','Variable');                 
+% uimenu(frh,'Label','Name...', ...
+%           'Callback','disp(''variable'')');
+% uimenu(frh,'Label','Value...', ...
+%           'Callback','disp(''value'')');
+      
+% meah = uimenu(f,'Label','Measurement'); 
+% uimenu(meah, 'Label','Show','Callback',@meah_Callback);
+% calh = uimenu(f,'Label','Calibration'); 
+% uimenu(calh,'Label','Show','Callback',@calh_Callback);
+
+% Read icon images for toolbar
+hToolbar = uitoolbar(f);
+measCon = imread('measIcon.png');
+calCon = imread('calIcon.png');
+
+% Create toolbar icons
+uipushtool(hToolbar, 'CData', measCon, 'ClickedCallback', @meah_Callback);
+uipushtool(hToolbar, 'CData', calCon, 'ClickedCallback', @calh_Callback);
+
+
+%Turn off default Menu Bar
+warning('off', 'MATLAB:uitabgroup:OldVersion');
+set(f, 'MenuBar', 'none', 'NumberTitle', 'off', 'Name', ...
+   'Background Noise Measurement');
+
+% Replace favicon
+warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
+jframe=get(f,'javaframe');
+jIcon=javax.swing.ImageIcon('PATH');
+jframe.setFigureIcon(jIcon);
+
+% Make tabs panels that will be switched between
+measTab = uipanel('BackgroundColor','white','Position',[0 0 1 1], ...
+    'BorderType','none','Visible','on');
+calTab = uipanel('BackgroundColor',[.8 .8 .8],'Position',[0 0 1 1], ...
+    'BorderType','none','Visible','off');
+
+
+%% Calibration tab controls
+%Left side display
+magText1 = uicontrol('Parent', calTab, 'Style', 'text', 'String', 'MAGNITUDE', 'Fontweight','bold', ...
+    'HorizontalAlignment', 'center','Units','Normalized', 'position', [.05 .5 .1 .05]);
+magText2 = uicontrol('Parent', calTab, 'Style', 'text', 'String', '94 Hz',...
+    'HorizontalAlignment', 'center','Units','Normalized', 'Position', [.25 .5 .1 .05]);
+magText3 = uicontrol('Parent', calTab, 'Style', 'text', 'String', '114 Hz', ...
+    'HorizontalAlignment', 'center','Units','Normalized', 'Position', [.25 .35 .1 .05]);
+magToggle114 = uicontrol('Parent', calTab, 'style','radio',...
+    'Units','Normalized','pos',[.2 .5 .015 .03],'value',1, 'callback', @onefourteen_Callback);
+magToggle94 = uicontrol('Parent', calTab, 'style','radio',...
+    'Units','Normalized','pos',[.2 .35 .015 .03],'value',0, 'callback',@ninetyfour_Callback);
+direct1 = uicontrol('Parent', calTab, 'Style', 'text', 'String', 'Step 1:', ...
+    'HorizontalAlignment', 'center','Units','Normalized', 'position', [.05 .9 .1 .05]);
+direct2 = uicontrol('Parent', calTab, 'Style', 'text', 'String', 'Step 2:', ...
+    'HorizontalAlignment', 'center','Units','Normalized', 'position', [.05 .8 .1 .05]);
+direct3 = uicontrol('Parent', calTab, 'Style', 'text', 'String', 'Step 3:', ...
+    'HorizontalAlignment', 'center','Units','Normalized', 'position', [.05 .7 .1 .05]);
+direct1Txt = uicontrol('Parent', calTab,'Style','text','String','Describe step one here.', ...
+    'HorizontalAlignment', 'left','Units','Normalized', 'position', [.2 .9 .3 .05]);
+direct2Txt = uicontrol('Parent', calTab,'Style','text','String','Describe step two here.', ...
+    'HorizontalAlignment', 'left','Units','Normalized', 'position', [.2 .8 .3 .05]);
+direct2Txt = uicontrol('Parent', calTab,'Style','text','String','Describe step three here.', ...
+    'HorizontalAlignment', 'left','Units','Normalized', 'position', [.2 .7 .3 .05]);
+
+%Right side display
+calButton    = uicontrol('Style','pushbutton', 'Parent', calTab,...
+             'String','Calibrate','Units','Normalized', 'Position', [.6 .5 .1 .05]);
+acceptButton    = uicontrol('Style','pushbutton', 'Parent', calTab,...
+             'String','Accept','Units','Normalized', 'Position', [.6 .4 .1 .05]);
+magText4 = uicontrol('Parent', calTab, 'Style', 'text', 'String', 'Current Calibration', 'Fontweight','bold',...
+    'HorizontalAlignment', 'center','Units','Normalized', 'position', [.8 .5 .15 .05]);
+magText4 = uicontrol('Parent', calTab, 'Style', 'text', 'String', 'Previous Calibration', 'Fontweight','bold',...
+    'HorizontalAlignment', 'center','Units','Normalized', 'position', [.8 .3 .15 .05]);
+currentCal = uicontrol('Parent', calTab,'Style','text','String','0','HorizontalAlignment', 'right', ...
+                'Units','Normalized','position', [.8 .4 .15 .05]);
+previousCal = uicontrol('Parent', calTab,'Style','text','String','0','HorizontalAlignment', 'right',...
+                'Units','Normalized','position', [.8 .2 .15 .05]);
+            
+
+%% Measurement tab controls
+pointPanel = uipanel('Parent',measTab','FontSize',12,...
+             'BackgroundColor',[.8 .8 .8],...
+              'Units', 'Normalized', ...
+             'Position',[.0 .0 .2 1]);
+mapPanel = uipanel('Parent',measTab','FontSize',12,...
+             'BackgroundColor',[.8 .8 .8],...
+              'Units', 'Normalized', ...
+             'Position',[.2 0 .8 .6]);
+         
+measPanel = uipanel('Parent',measTab','FontSize',12,...
+             'BackgroundColor',[.8 .8 .8],...
+             'Units', 'Normalized', ...
+             'Position',[.2 .6 .8 .4]);
+         
+uicontrol('Parent', pointPanel, 'Style', 'text', 'String', 'X Value', ...
+    'HorizontalAlignment', 'center','Units','Normalized', 'position', [.05 .875 .25 .05]);
+
+xInput = uicontrol('Parent', pointPanel, 'style','edit',...
+            'Units','Normalized','position',[.05 .8 .25 .05]);
+        
+uicontrol('Parent', pointPanel, 'Style', 'text', 'String', 'Y Value', ...
+    'HorizontalAlignment', 'center','Units','Normalized', 'position', [.4 .875 .25 .05]);
+        
+yInput = uicontrol('Parent', pointPanel, 'style','edit',...
+            'Units','Normalized','position',[.4 .8 .25 .05]);
+        
+uicontrol('Style','pushbutton', 'Parent', pointPanel,...
+             'String','TEST','Units','Normalized', 'Position', [.7 .8 .25 .1], 'callback', @test_Callback);
+         
+      
+pointTable = uitable('Parent', pointPanel, 'Units', 'norm', 'Position',...
+    [.05 .05 .9 .7], 'ColumnName',{'X', 'Y'},...
+    'ColumnFormat', {'bank', 'bank'});
+
+freqTable = uitable('Parent', measPanel, 'Units', 'norm', 'Position',...
+    [.05 .25 .9 .5], 'ColumnName', {'63', '125', '250', '500', '1000',...
+    '2000', '4000', '8000', '16000'}, ...
+    'ColumnFormat', {'numeric', 'numeric', 'numeric', 'numeric', 'numeric','numeric','numeric','numeric','numeric'});
+
+mapPlot = axes('Parent', mapPanel, 'Units', 'Normalized', 'Position',...
+    [0.05 0.1 0.9 0.85], 'Visible', 'on');
+axis([0 50 0 75])
+axis square
+box off
+
+         
+% Make the UI visible.
+set(f, 'visible', 'on')
+
+
+%% Callbacks
+function ninetyfour_Callback(hObject, eventdata)
+set(magToggle114,'Value',0)
 end
 
-if nargout
-    [varargout{1:nargout}] = gui_mainfcn(gui_State, varargin{:});
+
+function onefourteen_Callback(hObject, eventdata)
+set(magToggle94, 'value', 0)
+%swap
+end
+
+function swap
+if strcmp(get(measTab, 'Visible'),'off')
+    set(measTab, 'Visible','on')
+    set(calTab, 'Visible','off')
 else
-    gui_mainfcn(gui_State, varargin{:});
-end
-% End initialization code - DO NOT EDIT
-
-
-% --- Executes just before BackgroundNoise_GUI is made visible.
-function BackgroundNoise_GUI_OpeningFcn(hObject, eventdata, handles, varargin)
-% This function has no output args, see OutputFcn.
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-% varargin   command line arguments to BackgroundNoise_GUI (see VARARGIN)
-
-% Choose default command line output for BackgroundNoise_GUI
-handles.output = hObject;
-
-% Update handles structure
-guidata(hObject, handles);
-
-% UIWAIT makes BackgroundNoise_GUI wait for user response (see UIRESUME)
-% uiwait(handles.figure1);
-
-
-% --- Outputs from this function are returned to the command line.
-function varargout = BackgroundNoise_GUI_OutputFcn(hObject, eventdata, handles) 
-% varargout  cell array for returning output args (see VARARGOUT);
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Get default command line output from handles structure
-varargout{1} = handles.output;
-
-
-% --- Executes on button press in pushbutton1.
-function pushbutton1_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton1 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-
-% --- Executes on button press in radiobutton1.
-function radiobutton1_Callback(hObject, eventdata, handles)
-% hObject    handle to radiobutton1 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hint: get(hObject,'Value') returns toggle state of radiobutton1
-
-
-% --- Executes on button press in radiobutton2.
-function radiobutton2_Callback(hObject, eventdata, handles)
-% hObject    handle to radiobutton2 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hint: get(hObject,'Value') returns toggle state of radiobutton2
-
-
-% --- Executes on button press in checkbox1.
-function checkbox1_Callback(hObject, eventdata, handles)
-% hObject    handle to checkbox1 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hint: get(hObject,'Value') returns toggle state of checkbox1
-
-
-
-function edit1_Callback(hObject, eventdata, handles)
-% hObject    handle to edit1 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edit1 as text
-%        str2double(get(hObject,'String')) returns contents of edit1 as a double
-
-
-% --- Executes during object creation, after setting all properties.
-function edit1_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit1 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
+    set(measTab, 'Visible','off')
+    set(calTab, 'Visible','on')
+end  
 end
 
 
-% --- Executes on button press in pushbutton2.
-function pushbutton2_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton2 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+
+function meah_Callback(hObject, eventdata)
+set(measTab, 'Visible','on')
+set(calTab, 'Visible','off')
+drawnow
+end
+
+function calh_Callback(hObject, eventdata)
+set(measTab, 'Visible','off')
+set(calTab, 'Visible','on')
+drawnow
+end
 
 
-% --------------------------------------------------------------------
-function CALIB_MENU_Callback(hObject, eventdata, handles)
-% hObject    handle to CALIB_MENU (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+ function test_Callback(hObject, eventdata)
+x = str2double(get(xInput, 'String'));
+y = str2double(get(yInput, 'String'));
+% Check coordinate input
+if isnan(x)||isnan(y)
+    errordlg('Input not formatted properly.', 'Error!')
+    return
+else
+    % Format coordinates and place in table
+    x = round(x*100)/100;
+    y = round(y*100)/100;
+    % Add new row to point list
+    oldPoints = get(pointTable,'Data');
+    newPoints = [oldPoints; [x y]];
+    set(pointTable,'Data',newPoints)
+    set(xInput, 'String', [])
+    set(yInput, 'String', [])
+    % Execute test
+    newOctVals = measnoise();
+    % Add results to table
+    oldOctVals = get(freqTable,'Data');
+    newOctVals = [oldOctVals;newOctVals];
+    set(freqTable, 'Data', newOctVals)
+    % Add point to heatmap
+    hold on
+    plot(x, y, 'blacko')
+    
+end
 
 
-% --------------------------------------------------------------------
-function TEST_MENU_Callback(hObject, eventdata, handles)
-% hObject    handle to TEST_MENU (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+ 
+ end
+
+end
