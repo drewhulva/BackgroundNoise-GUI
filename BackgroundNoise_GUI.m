@@ -13,19 +13,6 @@ f = figure('Visible','off','Units','Normalized','Position',[.2 .3 .6 .5]);
 
 
 %%  Open new figure and 
-% mh = uimenu(f,'Label','File'); 
-% frh = uimenu(mh,'Label','Find and Replace ...',...
-%             'Callback','disp(''goto'')');
-% frh = uimenu(mh,'Label','Variable');                 
-% uimenu(frh,'Label','Name...', ...
-%           'Callback','disp(''variable'')');
-% uimenu(frh,'Label','Value...', ...
-%           'Callback','disp(''value'')');
-      
-% meah = uimenu(f,'Label','Measurement'); 
-% uimenu(meah, 'Label','Show','Callback',@meah_Callback);
-% calh = uimenu(f,'Label','Calibration'); 
-% uimenu(calh,'Label','Show','Callback',@calh_Callback);
 
 % Read icon images for toolbar
 hToolbar = uitoolbar(f);
@@ -79,10 +66,10 @@ direct2Txt = uicontrol('Parent', calTab,'Style','text','String','Describe step t
     'HorizontalAlignment', 'left','Units','Normalized', 'position', [.2 .8 .3 .05]);
 direct2Txt = uicontrol('Parent', calTab,'Style','text','String','Describe step three here.', ...
     'HorizontalAlignment', 'left','Units','Normalized', 'position', [.2 .7 .3 .05]);
-
 %Right side display
 calButton    = uicontrol('Style','pushbutton', 'Parent', calTab,...
-             'String','Calibrate','Units','Normalized', 'Position', [.6 .5 .1 .05]);
+             'String','Calibrate','Units','Normalized', 'Position', [.6 .5 .1 .05],...
+             'callback',@cal_Callback);
 acceptButton    = uicontrol('Style','pushbutton', 'Parent', calTab,...
              'String','Accept','Units','Normalized', 'Position', [.6 .4 .1 .05]);
 magText4 = uicontrol('Parent', calTab, 'Style', 'text', 'String', 'Current Calibration', 'Fontweight','bold',...
@@ -142,6 +129,8 @@ axis square
 box off
 
          
+% Globals
+cons=[];
 % Make the UI visible.
 set(f, 'visible', 'on')
 
@@ -181,7 +170,11 @@ set(calTab, 'Visible','on')
 drawnow
 end
 
-
+function cal_Callback(hObject, eventdata)
+cons = cal();
+set(previousCal,'String',get(currentCal,'String'))
+set(currentCal,'String',num2str(cons))
+end
  function test_Callback(hObject, eventdata)
 x = str2double(get(xInput, 'String'));
 y = str2double(get(yInput, 'String'));
@@ -200,7 +193,7 @@ else
     set(xInput, 'String', [])
     set(yInput, 'String', [])
     % Execute test
-    newOctVals = measnoise();
+    newOctVals = measnoise(cons);
     % Add results to table
     oldOctVals = get(freqTable,'Data');
     newOctVals = [oldOctVals;newOctVals];
